@@ -1,6 +1,7 @@
-"""Collect data about where celestial bodies are."""
 import datetime
 import math
+import os
+import yaml
 
 from pytz import timezone
 from skyfield.api import Loader
@@ -12,29 +13,25 @@ import numpy as np
 
 from . import constellations
 
-# use non-interactive backend to keep multiple instances on
-# different threads from interacting
+# use non-interactive backend
 matplotlib.use("agg")
+
+# Load custom colors from YAML
+def load_color_config(preset_name=None):
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "custom_mod.yaml"), "r") as f:
+            config = yaml.safe_load(f)
+            presets = config.get("presets", {})
+            default = config.get("default_theme", "dark_mode")
+            selected = preset_name or default
+            return presets.get(selected, presets.get("dark_mode", {}))
+    except Exception:
+        return {}
 
 EARTH = "earth"
 SUN = "sun"
 
-BODIES = [
-    ("Sun", SUN, "gold", 500),
-    ("Mercury", "mercury", "pink", 40),
-    ("Venus", "venus", "rosybrown", 60),
-    ("Moon", "moon", "lightgrey", 300),
-    ("Mars", "mars", "red", 60),
-    ("Jupiter", "jupiter barycenter", "chocolate", 100),
-    ("Saturn", "saturn barycenter", "khaki", 90),
-    ("Uranus", "uranus barycenter", "lightsteelblue", 40),
-    ("Neptune", "neptune barycenter", "royalblue", 30),
-]
-
-
-class Sky:  # pylint: disable=too-many-instance-attributes
-    """The Sky and its bodies."""
-
+class Sky:
     def __init__(
         self,
         latlong,
@@ -47,6 +44,7 @@ class Sky:  # pylint: disable=too-many-instance-attributes
         north_up=False,
         horizontal_flip=False,
         image_type="png",
+        color_preset=None,
     ):
         lat, long = latlong
         self._latlong = Topos(latitude_degrees=lat, longitude_degrees=long)
@@ -65,6 +63,7 @@ class Sky:  # pylint: disable=too-many-instance-attributes
         self._north_up = north_up
         self._horizontal_flip = horizontal_flip
         self._image_type = image_type
+        self._colors = load_color_config(color_preset)
 
         if constellation_list is None:
             self._constellation_names = constellations.DEFAULT_CONSTELLATIONS
@@ -73,21 +72,11 @@ class Sky:  # pylint: disable=too-many-instance-attributes
         self._planet_list = planet_list
 
     def load(self, tmpdir="."):
-        """Perform long-running init steps."""
         if self._planets is None:
-            # Interestingly, if you have multiple GUIs running you can sometimes
-            # get the load method being called more than once with the same
-            # instance variables, so we put this in a guard.
             self._load_sky_data(tmpdir)
             self._run_initial_computations()
 
     def _load_sky_data(self, tmpdir):
-        """
-        Load the primary input data for skyfield.
-
-        This requires a download for the first one, or
-        the inclusion of the data files.
-        """
         load = Loader(tmpdir)
         self._planets = load("de421.bsp")
         self._ts = load.timescale()
@@ -102,26 +91,44 @@ class Sky:  # pylint: disable=too-many-instance-attributes
             )
 
     def _load_points(self):
-        """Initialize the objects representing the Sun, moon, and planets."""
-        # somewhat surprising, sometimes points were getting double-added
         self._points.clear()
-        for name, planet_label, color, size in BODIES:
-            if self._planet_list is not None and name not in self._planet_list:
-                # planet not requested. skip it.
+        for name, planet_label in [
+            ("Sun", SUN),
+            ("Mercury", "mercury"),
+            ("Venus", "venus"),
+            ("Moon", "moon"),
+            ("Mars", "mars"),
+            ("Jupiter", "jupiter barycenter"),
+            ("Saturn", "saturn barycenter"),
+            ("Uranus", "uranus barycenter"),
+            ("Neptune", "neptune barycenter"),
+        ]:
+            if self._planet_list and name not in self._planet_list:
                 continue
+            color = self._colors.get("planets", {}).get(name, "#ffffff")
+            size = {
+                "Sun": 500,
+                "Mercury": 40,
+                "Venus": 60,
+                "Moon": 300,
+                "Mars": 60,
+                "Jupiter": 100,
+                "Saturn": 90,
+                "Uranus": 40,
+                "Neptune": 30,
+            }.get(name, 50)
             self._points.append(
                 Point(name, self._planets[planet_label], color, size, self)
             )
 
     def _compute_solstice_paths(self):
-        """Compute solar paths at winter and summer solstices."""
         today = datetime.datetime.today()
         self._winter_solstice = BodyPath(
             self._planets[SUN],
             datetime.datetime(today.year, 12, 21),
             self,
             fmt="--",
-            color="blue",
+            color=self._colors.get("solstice_winter", "#219ebc"),
             linewidth=1,
             alpha=0.8,
         )
@@ -130,24 +137,16 @@ class Sky:  # pylint: disable=too-many-instance-attributes
             datetime.datetime(today.year, 6, 21),
             self,
             fmt="--",
-            color="green",
+            color=self._colors.get("solstice_summer", "#8ecae6"),
             linewidth=1,
             alpha=0.8,
         )
 
     @property
     def get_image_type(self):
-        """Return the image type attribute."""
         return self._image_type
 
     def compute_position(self, body, obs_datetime):
-        """
-        Compute azimuth and altitude of a body at a time.
-
-        Remap the altitude to be degrees away from straight up
-        rather than from the horizon, since this is how
-        the plot axes are in theta,r coordinates.
-        """
         obs_time = self._ts.utc(self._timezone.localize(obs_datetime))
         astrometric = self._location.at(obs_time).observe(body)
         alt, azi, _d = astrometric.apparent().altaz()
@@ -156,29 +155,21 @@ class Sky:  # pylint: disable=too-many-instance-attributes
         return azi, alt
 
     def plot_sky(self, output=None, when=None):
-        """
-        Make a figure with the sky and various planets/sun/moon.
-
-        This is a r, theta plot where r goes from 0 to 90 from the center
-        and theta goes all the way around radially.
-
-        r represents the altitude
-        theta is the azimuth.
-
-        Matplotlib takes these in (theta, r) coordinate pairs so it's (azimuth, altitude) for us.
-        """
         if when is None:
             when = datetime.datetime.now()
 
         visible = [np.linspace(0, 2 * np.pi, 200), [90.0 for _i in range(200)]]
 
-        # pylint: disable=invalid-name
         fig, ax = plt.subplots(
             1, 1, figsize=(6, 6.2), subplot_kw={"projection": "polar"}
         )
+
+        fig.patch.set_facecolor(self._colors.get("background_outer", "#0d1b2a"))
+        ax.set_facecolor(self._colors.get("background_inner", "#1b263b"))
         ax.set_axisbelow(True)
         ax.set_theta_direction(1 if self._horizontal_flip else -1)
-        ax.plot(*visible, "-", color="k", linewidth=3, alpha=1.0)  # border
+
+        ax.plot(*visible, "-", color=self._colors.get("grid_circle", "#0d1b2a"), linewidth=3, alpha=1.0)
 
         self._draw_objects(ax, when)
 
@@ -190,6 +181,7 @@ class Sky:  # pylint: disable=too-many-instance-attributes
                 horizontalalignment="left",
                 verticalalignment="top",
                 fontsize=8,
+                color=self._colors.get("text", "#e0e1dd"),
             )
 
         if self._show_legend:
@@ -201,37 +193,43 @@ class Sky:  # pylint: disable=too-many-instance-attributes
                 columnspacing=1,
                 mode=None,
                 handletextpad=0.05,
+                labelcolor=self._colors.get("text", "#e0e1dd"),
+                facecolor=self._colors.get("legend_face", "#1b263b"),
+                edgecolor=self._colors.get("legend_edge", "#0d1b2a"),
             )
 
         ax.set_theta_zero_location("N" if self._north_up else "S", offset=0)
         ax.set_rmax(90)
+
         ax.set_rgrids(
-            np.linspace(0, 90, 10), [f"{int(f)}˚" for f in np.linspace(90, 0, 10)]
+            np.linspace(0, 90, 10),
+            [f"{int(f)}˚" for f in np.linspace(90, 0, 10)],
+            color=self._colors.get("rgrid_color", "#e0e1dd"),
         )
         ax.set_thetagrids(
-            np.linspace(0, 360.0, 9), ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"]
+            np.linspace(0, 360.0, 9),
+            ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"],
+            color=self._colors.get("tgrid_color", "#e0e1dd"),
         )
         fig.tight_layout()
 
         if output is None:
             plt.show()
         else:
-            # filename string or file-like object/buffer
             fig.savefig(output, format=self._image_type)
         plt.close()
 
     def _draw_objects(self, ax, when):
-        """Add all celestial bodies to the plots"""
         today_sunpath = BodyPath(
             self._planets[SUN],
-            # use today's midnight to hide discontinuities
             datetime.datetime.now().replace(hour=0, minute=0),
             self,
             "-",
-            color="k",
+            color=self._colors.get("sun_today", "#ffb703"),
             linewidth=1,
             alpha=0.8,
         )
+
         for sunpath in [self._winter_solstice, self._summer_solstice, today_sunpath]:
             sunpath.draw(ax)
 
@@ -242,9 +240,7 @@ class Sky:  # pylint: disable=too-many-instance-attributes
             constellation.draw(ax, when)
 
 
-class BodyPath(object):
-    """A line that some Body will travel on on some given day"""
-
+class BodyPath:
     def __init__(self, body, day, sky, fmt, color, linewidth=1, alpha=0.8):
         self._body = body
         self._day = day
@@ -258,7 +254,6 @@ class BodyPath(object):
         self._compute_daily_path()
 
     def _compute_daily_path(self, delta=datetime.timedelta(minutes=20)):
-        """Get all possible positions for a given day."""
         data = []
         for interval in range(24 * 3 + 1):
             now = self._day + delta * interval
@@ -267,7 +262,6 @@ class BodyPath(object):
         self.path = list(zip(*data))
 
     def draw(self, ax):
-        """Draw this path on a matplotlib axis"""
         ax.plot(
             *self.path,
             self.fmt,
@@ -277,9 +271,7 @@ class BodyPath(object):
         )
 
 
-class Point(object):
-    """A point in the sky like a planet or the sun"""
-
+class Point:
     def __init__(self, label, body, color, size, sky):
         self._label = label
         self._body = body
@@ -289,6 +281,18 @@ class Point(object):
 
     def draw(self, ax, when):
         azi, alt = self._sky.compute_position(self._body, when)
+
+        ax.scatter(
+            azi,
+            alt,
+            s=self._size * 3.5,
+            alpha=0.2,
+            color=self._color,
+            edgecolor="none",
+            linewidths=0,
+            zorder=1,
+        )
+
         ax.scatter(
             azi,
             alt,
@@ -297,4 +301,6 @@ class Point(object):
             alpha=1.0,
             color=self._color,
             edgecolor="black",
+            linewidths=0.5,
+            zorder=2,
         )
