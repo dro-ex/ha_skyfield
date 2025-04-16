@@ -10,6 +10,7 @@ from skyfield.api import Topos
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Ellipse  # For Saturn's rings
 
 from . import constellations
 
@@ -169,7 +170,13 @@ class Sky:
         ax.set_axisbelow(True)
         ax.set_theta_direction(1 if self._horizontal_flip else -1)
 
-        ax.plot(*visible, "-", color=self._colors.get("grid_circle", "#0d1b2a"), linewidth=3, alpha=1.0)
+        ax.plot(
+            *visible,
+            "-",
+            color=self._colors.get("grid_circle", "#0d1b2a"),
+            linewidth=3,
+            alpha=1.0,
+        )
 
         self._draw_objects(ax, when)
 
@@ -211,6 +218,11 @@ class Sky:
             ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"],
             color=self._colors.get("tgrid_color", "#e0e1dd"),
         )
+        # Explicitly set grid line colors
+        ax.yaxis.grid(True, color=self._colors.get("rgrid_color", "#e0e1dd"), linestyle='-')
+        ax.xaxis.grid(True, color=self._colors.get("tgrid_color", "#e0e1dd"), linestyle='-')
+
+
         fig.tight_layout()
 
         if output is None:
@@ -270,7 +282,6 @@ class BodyPath:
             alpha=self.alpha,
         )
 
-
 class Point:
     def __init__(self, label, body, color, size, sky):
         self._label = label
@@ -304,3 +315,16 @@ class Point:
             linewidths=0.5,
             zorder=2,
         )
+
+                                                # Draw a simple horizontal line through Saturn for rings
+        if self._label == "Saturn":
+            ax.scatter(
+                azi,
+                alt,
+                s=2.0 * self._size,  # increased to 1.6× size
+                marker='_',
+                color=self._color,
+                linewidths=1.0,       # thinner line
+                zorder=3,
+            )
+
