@@ -1,5 +1,10 @@
+# custom_components/ha_skyfield/bodies.py
+
 import datetime
 import math
+import os
+import yaml
+
 from pytz import timezone
 from skyfield.api import Loader, Topos
 
@@ -7,7 +12,7 @@ import matplotlib
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Ellipse
+from matplotlib.patches import Ellipse  # For Saturn's rings
 
 from . import constellations
 
@@ -31,18 +36,54 @@ class Sky:
         presets=None,
         color_preset=None,
     ):
-        # --- theme handling (no more external YAML) ---
-        self._presets = presets or {}
+        # --- built‑in dark palette as fallback ---
+        builtin_dark = {
+            "glow": True,
+            "background_outer": "#020202",
+            "background_inner": "#1c1c1c",
+            "grid_circle": "#050505",
+            "text": "#f0f0f0",
+            "legend_face": "#2a2a2a",
+            "legend_edge": "#444444",
+            "rgrid_color": "#707070",
+            "tgrid_color": "#707070",
+            "sun_today": "#fff09a",
+            "solstice_winter": "#56b4e9",
+            "solstice_summer": "#009e73",
+            "planets": {
+                "Sun": "#fff09a",
+                "Mercury": "#adbbc3",
+                "Venus": "#e5dbb6",
+                "Moon": "#999999",
+                "Mars": "#ef000f",
+                "Jupiter": "#e6b200",
+                "Saturn": "#ffb000",
+                "Uranus": "#00f9ff",
+                "Neptune": "#0079ff",
+            },
+        }
+
+        # Merge built‑in dark with any user presets (YAML overrides)
+        merged = {"dark": builtin_dark}
+        if presets:
+            merged.update(presets)
+        self._presets = merged
+        self._builtin_dark = builtin_dark
+
         self._default_theme = default_theme
         self._selected_theme = color_preset or default_theme
-        colors = self._presets.get(self._selected_theme,
-                                   self._presets.get(default_theme, {}))
+
+        # Pick the chosen theme (fallback to default, then empty)
+        colors = self._presets.get(
+            self._selected_theme,
+            self._presets.get(self._default_theme, {})
+        )
         colors["glow"] = bool(colors.get("glow", True))
         self._colors = colors
 
         # --- sky setup ---
-        lat, long = latlong
-        self._latlong = Topos(latitude_degrees=lat, longitude_degrees=long)
+        lat, lon = latlong
+        self._latlong = Topos(latitude_degrees=lat, longitude_degrees=lon)
         self._timezone = timezone(tzname)
         self._planets = None
         self._ts = None
@@ -98,7 +139,11 @@ class Sky:
         ]:
             if self._planet_list and name not in self._planet_list:
                 continue
-            color = self._colors.get("planets", {}).get(name, "#ffffff")
+            # fall back to built‑in dark palette if missing
+            color = self._colors.get("planets", {}).get(
+                name,
+                self._builtin_dark["planets"].get(name, "#ffffff")
+            )
             size = {
                 "Sun": 500,
                 "Mercury": 40,
@@ -121,7 +166,7 @@ class Sky:
             datetime.datetime(today.year, 12, 21),
             self,
             fmt="--",
-            color=self._colors.get("solstice_winter", "#219ebc"),
+            color=self._colors.get("solstice_winter", "#56b4e9"),
             linewidth=1,
             alpha=0.8,
         )
@@ -130,7 +175,7 @@ class Sky:
             datetime.datetime(today.year, 6, 21),
             self,
             fmt="--",
-            color=self._colors.get("solstice_summer", "#8ecae6"),
+            color=self._colors.get("solstice_summer", "#009e73"),
             linewidth=1,
             alpha=0.8,
         )
@@ -142,7 +187,7 @@ class Sky:
     def compute_position(self, body, obs_datetime):
         obs_time = self._ts.utc(self._timezone.localize(obs_datetime))
         astrometric = self._location.at(obs_time).observe(body)
-        alt, azi, _d = astrometric.apparent().altaz()
+        alt, azi, _ = astrometric.apparent().altaz()
         alt = 90 - alt.radians * 180 / math.pi
         azi = azi.radians
         return azi, alt
@@ -151,21 +196,25 @@ class Sky:
         if when is None:
             when = datetime.datetime.now()
 
-        visible = [np.linspace(0, 2 * np.pi, 200), [90.0 for _i in range(200)]]
+        visible = [np.linspace(0, 2 * np.pi, 200), [90.0] * 200]
 
         fig, ax = plt.subplots(
             1, 1, figsize=(6, 6.2), subplot_kw={"projection": "polar"}
         )
 
-        fig.patch.set_facecolor(self._colors.get("background_outer", "#0d1b2a"))
-        ax.set_facecolor(self._colors.get("background_inner", "#1b263b"))
+        fig.patch.set_facecolor(
+            self._colors.get("background_outer", "#020202")
+        )
+        ax.set_facecolor(
+            self._colors.get("background_inner", "#1c1c1c")
+        )
         ax.set_axisbelow(True)
         ax.set_theta_direction(1 if self._horizontal_flip else -1)
 
         ax.plot(
             *visible,
             "-",
-            color=self._colors.get("grid_circle", "#0d1b2a"),
+            color=self._colors.get("grid_circle", "#050505"),
             linewidth=3,
             alpha=1.0,
         )
@@ -180,7 +229,7 @@ class Sky:
                 horizontalalignment="left",
                 verticalalignment="top",
                 fontsize=8,
-                color=self._colors.get("text", "#e0e1dd"),
+                color=self._colors.get("text", "#f0f0f0"),
             )
 
         if self._show_legend:
@@ -192,9 +241,9 @@ class Sky:
                 columnspacing=1,
                 mode=None,
                 handletextpad=0.05,
-                labelcolor=self._colors.get("text", "#e0e1dd"),
-                facecolor=self._colors.get("legend_face", "#1b263b"),
-                edgecolor=self._colors.get("legend_edge", "#0d1b2a"),
+                labelcolor=self._colors.get("text", "#f0f0f0"),
+                facecolor=self._colors.get("legend_face", "#2a2a2a"),
+                edgecolor=self._colors.get("legend_edge", "#444444"),
             )
 
         ax.set_theta_zero_location("N" if self._north_up else "S", offset=0)
@@ -203,17 +252,19 @@ class Sky:
         ax.set_rgrids(
             np.linspace(0, 90, 10),
             [f"{int(f)}˚" for f in np.linspace(90, 0, 10)],
-            color=self._colors.get("rgrid_color", "#e0e1dd"),
+            color=self._colors.get("rgrid_color", "#707070"),
         )
         ax.set_thetagrids(
             np.linspace(0, 360.0, 9),
             ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"],
-            color=self._colors.get("tgrid_color", "#e0e1dd"),
+            color=self._colors.get("tgrid_color", "#707070"),
         )
-        # Explicitly set grid line colors
-        ax.yaxis.grid(True, color=self._colors.get("rgrid_color", "#e0e1dd"), linestyle='-')
-        ax.xaxis.grid(True, color=self._colors.get("tgrid_color", "#e0e1dd"), linestyle='-')
-
+        ax.yaxis.grid(
+            True, color=self._colors.get("rgrid_color", "#707070"), linestyle="-"
+        )
+        ax.xaxis.grid(
+            True, color=self._colors.get("tgrid_color", "#707070"), linestyle="-"
+        )
 
         fig.tight_layout()
 
@@ -229,7 +280,7 @@ class Sky:
             datetime.datetime.now().replace(hour=0, minute=0),
             self,
             "-",
-            color=self._colors.get("sun_today", "#ffb703"),
+            color=self._colors.get("sun_today", "#fff09a"),
             linewidth=1,
             alpha=0.8,
         )
@@ -254,7 +305,6 @@ class BodyPath:
         self.color = color
         self.linewidth = linewidth
         self.alpha = alpha
-
         self._compute_daily_path()
 
     def _compute_daily_path(self, delta=datetime.timedelta(minutes=20)):
@@ -274,6 +324,7 @@ class BodyPath:
             alpha=self.alpha,
         )
 
+
 class Point:
     def __init__(self, label, body, color, size, sky):
         self._label = label
@@ -285,7 +336,6 @@ class Point:
     def draw(self, ax, when):
         azi, alt = self._sky.compute_position(self._body, when)
 
-        # only draw planet glow if the YAML preset set glow: true
         if self._sky._colors.get("glow", True):
             ax.scatter(
                 azi,
@@ -310,16 +360,13 @@ class Point:
             zorder=2,
         )
 
-
-                                                # Draw a simple horizontal line through Saturn for rings
         if self._label == "Saturn":
             ax.scatter(
                 azi,
                 alt,
-                s=2.0 * self._size,  # increased to 1.6× size
-                marker='_',
+                s=2.0 * self._size,
+                marker="_",
                 color=self._color,
-                linewidths=1.0,       # thinner line
+                linewidths=1.0,
                 zorder=3,
             )
-
