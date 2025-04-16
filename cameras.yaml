@@ -1,0 +1,101 @@
+- platform: ha_skyfield
+  color_preset_entity: input_select.skyfield_theme
+  refresh_interval: 120
+  show_constellations: false
+  default_theme: dark
+  show_legend: true
+  color_presets:
+    light:
+      glow: true
+      background_outer: "#f5f5f5"
+      background_inner: "#ffffff"
+      grid_circle: "#cccccc"
+      text: "#333333"
+      legend_face: "#ffffff"
+      legend_edge: "#cccccc"
+      rgrid_color: "#666666"
+      tgrid_color: "#666666"
+      sun_today: "#ff9900"
+      solstice_winter: "#006d77"
+      solstice_summer: "#83c5be"
+      planets:
+        Sun: "#ffaa00"
+        Mercury: "#aa9999"
+        Venus: "#cfae91"
+        Moon: "#a0a0a0"
+        Mars: "#cc6666"
+        Jupiter: "#be9b7b"
+        Saturn: "#d6c690"
+        Uranus: "#9bd1e1"
+        Neptune: "#587ca3"
+    night:
+      glow: false
+      background_outer: "#1a0000"
+      background_inner: "#260000"
+      grid_circle: "#330000"
+      text: "#ff4d4d"
+      legend_face: "#260000"
+      legend_edge: "#330000"
+      rgrid_color: "#ff4d4d"
+      tgrid_color: "#ff4d4d"
+      sun_today: "#ff6666"
+      solstice_winter: "#ff4d4d"
+      solstice_summer: "#ff9999"
+      planets:
+        Sun: "#ff0000"
+        Mercury: "#cc0000"
+        Venus: "#d14747"
+        Moon: "#993333"
+        Mars: "#ff3333"
+        Jupiter: "#ff6666"
+        Saturn: "#cc3333"
+        Uranus: "#ff4d4d"
+        Neptune: "#e60000"
+    twilight:
+      glow: true
+      background_outer: "#282843"
+      background_inner: "#403d63"
+      grid_circle: "#330000"
+      text: "#e6c8ee"
+      legend_face: "#f4f1de"
+      legend_edge: "#ffb703"
+      rgrid_color: "#8e9aaf"
+      tgrid_color: "#2b2d42"
+      sun_today: "#ffff00"
+      solstice_summer: "#fb8500"
+      solstice_winter: "#023047"
+      stars: "#ffb8fe"
+      moon: "#abacd1"
+      planets:
+        Mercury: "#1ee8ed"
+        Venus: "#1ee8ed"
+        Earth: "#1ee8ed"
+        Mars: "#1ee8ed"
+        Jupiter: "#1ee8ed"
+        Saturn: "#1ee8ed"
+        Uranus: "#1ee8ed"
+        Neptune: "#1ee8ed"
+        Pluto: "#1ee8ed"
+    dark:
+      glow: true
+      background_outer: "#020202"
+      background_inner: "#1c1c1c"
+      grid_circle: "#050505"
+      text: "#f0f0f0"
+      legend_face: "#2a2a2a"
+      legend_edge: "#444444"
+      rgrid_color: "#707070"
+      tgrid_color: "#707070"
+      sun_today: "#fff09a"
+      solstice_winter: "#56b4e9"
+      solstice_summer: "#009e73"
+      planets:
+        Sun: "#fff09a"
+        Mercury: "#adbbc3"
+        Venus: "#e5dbb6"
+        Moon: "#999999"
+        Mars: "#ef000f"
+        Jupiter: "#e6b200"
+        Saturn: "#ffb000"
+        Uranus: "#00f9ff"
+        Neptune: "#0079ff"
