@@ -1,37 +1,15 @@
 import datetime
 import math
-import os
-import yaml
-
 from pytz import timezone
-from skyfield.api import Loader
-from skyfield.api import Topos
+from skyfield.api import Loader, Topos
 
 import matplotlib
+matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Ellipse  # For Saturn's rings
+from matplotlib.patches import Ellipse
 
 from . import constellations
-
-# use non-interactive backend
-matplotlib.use("agg")
-
-# Load custom colors from YAML
-def load_color_config(preset_name=None):
-    try:
-        with open(os.path.join(os.path.dirname(__file__), "skyfield_config.yaml"), "r") as f:
-            config = yaml.safe_load(f)
-            presets = config.get("presets", {})
-            default = config.get("default_theme", "dark")
-            selected = preset_name or default
-            # load the preset’s colors…
-            colors = presets.get(selected, presets.get("dark", {}))
-            # honor a `glow: true/false` entry in that same preset
-            colors["glow"] = bool(colors.get("glow", True))
-            return colors
-    except Exception:
-        return {}
 
 EARTH = "earth"
 SUN = "sun"
@@ -49,8 +27,20 @@ class Sky:
         north_up=False,
         horizontal_flip=False,
         image_type="png",
+        default_theme="dark",
+        presets=None,
         color_preset=None,
     ):
+        # --- theme handling (no more external YAML) ---
+        self._presets = presets or {}
+        self._default_theme = default_theme
+        self._selected_theme = color_preset or default_theme
+        colors = self._presets.get(self._selected_theme,
+                                   self._presets.get(default_theme, {}))
+        colors["glow"] = bool(colors.get("glow", True))
+        self._colors = colors
+
+        # --- sky setup ---
         lat, long = latlong
         self._latlong = Topos(latitude_degrees=lat, longitude_degrees=long)
         self._timezone = timezone(tzname)
@@ -59,7 +49,6 @@ class Sky:
         self._location = None
         self._winter_solstice = None
         self._summer_solstice = None
-        self.sun_position = None
         self._constellations = []
         self._points = []
         self._show_constellations = show_constellations
@@ -68,7 +57,6 @@ class Sky:
         self._north_up = north_up
         self._horizontal_flip = horizontal_flip
         self._image_type = image_type
-        self._colors = load_color_config(color_preset)
 
         if constellation_list is None:
             self._constellation_names = constellations.DEFAULT_CONSTELLATIONS
