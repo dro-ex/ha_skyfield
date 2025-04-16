@@ -6,7 +6,7 @@ This is a custom component for [Home Assistant ](https://www.home-assistant.io/)
 that makes a live polar sun path chart for your location. Besides the Sun, it
 also shows the Moon and a few major planets. Plus, it shows the Winter and Summer solstice sun paths so you can see where you are in the seasons!
 
-![Screenshot of the skyfield](screenshot.png)
+![Screenshot of the skyfield](screen-shot.png)
 
 This uses the [skyfield library](https://rhodesmill.org/skyfield/) to do the computations. 
 
