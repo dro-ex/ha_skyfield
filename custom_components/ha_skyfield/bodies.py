@@ -105,6 +105,18 @@ class Sky:
             self._constellation_names = constellation_list
         self._planet_list = planet_list
 
+    def set_theme(self, theme_name: str) -> None:
+        """Switch to a new preset at runtime."""
+        # pick up the new theme (falling back to default if missing)
+        self._selected_theme = theme_name
+        colors = self._presets.get(
+            theme_name,
+            self._presets.get(self._default_theme, {})
+        )
+        colors["glow"] = bool(colors.get("glow", True))
+        self._colors = colors
+
+
     def load(self, tmpdir="."):
         if self._planets is None:
             self._load_sky_data(tmpdir)

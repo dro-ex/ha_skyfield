@@ -1,4 +1,4 @@
-# <config_dir>/custom_components/ha_skyfield/camera.py
+# custom_components/ha_skyfield/camera.py
 
 from __future__ import annotations
 import logging
@@ -17,7 +17,6 @@ _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "skyfield"
 ICON = "mdi:sun"
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=1)
 
 # Configuration keys
 CONF_SHOW_CONSTELLATIONS = "show_constellations"
@@ -31,6 +30,7 @@ CONF_IMAGE_TYPE = "image_type"
 CONF_DEFAULT_THEME = "default_theme"
 CONF_COLOR_PRESETS = "color_presets"
 CONF_REFRESH_INTERVAL = "refresh_interval"
+CONF_COLOR_PRESET_ENTITY = "color_preset_entity"
 
 # Schema for the presets mapping
 PRESETS_SCHEMA = vol.Schema({cv.string: dict})
@@ -48,11 +48,11 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_DEFAULT_THEME, default="dark"): cv.string,
         vol.Optional(CONF_COLOR_PRESETS, default={}): PRESETS_SCHEMA,
         vol.Optional(CONF_REFRESH_INTERVAL, default=300): cv.positive_int,
+        vol.Optional(CONF_COLOR_PRESET_ENTITY): cv.entity_id,
     }
 )
 
 def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up the Skyfield camera platform."""
     latitude = config.get(CONF_LATITUDE, hass.config.latitude)
     longitude = config.get(CONF_LONGITUDE, hass.config.longitude)
     tzname = str(hass.config.time_zone)
@@ -68,12 +68,12 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     default_theme = config[CONF_DEFAULT_THEME]
     color_presets = config[CONF_COLOR_PRESETS]
     refresh_interval = config[CONF_REFRESH_INTERVAL]
+    theme_entity = config.get(CONF_COLOR_PRESET_ENTITY)
 
     tmpdir = "/tmp/skyfield"
     _LOGGER.debug(
-        "Setting up skyfield camera (theme=%s, refresh=%ss)",
-        default_theme,
-        refresh_interval,
+        "Setting up skyfield camera (theme=%s, refresh=%ss, theme_entity=%s)",
+        default_theme, refresh_interval, theme_entity
     )
 
     panel = SkyFieldCam(
@@ -92,8 +92,8 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         default_theme,
         color_presets,
         refresh_interval=refresh_interval,
+        color_preset_entity=theme_entity,
     )
-
     add_entities([panel], True)
 
 
@@ -117,6 +117,7 @@ class SkyFieldCam(Camera):
         default_theme,
         color_presets,
         refresh_interval: int,
+        color_preset_entity: str | None = None,
     ):
         super().__init__()
         self._latitude = latitude
@@ -134,6 +135,7 @@ class SkyFieldCam(Camera):
         self._default_theme = default_theme
         self._color_presets = color_presets
         self._refresh_interval = refresh_interval
+        self._theme_entity = color_preset_entity
 
         self.sky = Sky(
             (latitude, longitude),
@@ -165,7 +167,12 @@ class SkyFieldCam(Camera):
         return ICON
 
     def camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
-        """Return a bytes image of the sky plot."""
+        """Return image bytes in memory, applying live theme if configured."""
+        if self._theme_entity:
+            state = self.hass.states.get(self._theme_entity)
+            if state and state.state:
+                self.sky.set_theme(state.state)
+
         if not self._loaded:
             _LOGGER.debug("Loading sky data for the first time")
             self.sky.load(self._tmpdir)
