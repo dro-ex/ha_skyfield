@@ -19,12 +19,12 @@ matplotlib.use("agg")
 # Load custom colors from YAML
 def load_color_config(preset_name=None):
     try:
-        with open(os.path.join(os.path.dirname(__file__), "custom_mod.yaml"), "r") as f:
+        with open(os.path.join(os.path.dirname(__file__), "skyfield_config.yaml"), "r") as f:
             config = yaml.safe_load(f)
             presets = config.get("presets", {})
-            default = config.get("default_theme", "dark_mode")
+            default = config.get("default_theme", "dark")
             selected = preset_name or default
-            return presets.get(selected, presets.get("dark_mode", {}))
+            return presets.get(selected, presets.get("dark", {}))
     except Exception:
         return {}
 
