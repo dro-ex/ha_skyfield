@@ -25,7 +25,11 @@ def load_color_config(preset_name=None):
             presets = config.get("presets", {})
             default = config.get("default_theme", "dark")
             selected = preset_name or default
-            return presets.get(selected, presets.get("dark", {}))
+            # load the preset’s colors…
+            colors = presets.get(selected, presets.get("dark", {}))
+            # honor a `glow: true/false` entry in that same preset
+            colors["glow"] = bool(colors.get("glow", True))
+            return colors
     except Exception:
         return {}
 
@@ -293,16 +297,18 @@ class Point:
     def draw(self, ax, when):
         azi, alt = self._sky.compute_position(self._body, when)
 
-        ax.scatter(
-            azi,
-            alt,
-            s=self._size * 3.5,
-            alpha=0.2,
-            color=self._color,
-            edgecolor="none",
-            linewidths=0,
-            zorder=1,
-        )
+        # only draw planet glow if the YAML preset set glow: true
+        if self._sky._colors.get("glow", True):
+            ax.scatter(
+                azi,
+                alt,
+                s=self._size * 3.5,
+                alpha=0.2,
+                color=self._color,
+                edgecolor="none",
+                linewidths=0,
+                zorder=1,
+            )
 
         ax.scatter(
             azi,
@@ -315,6 +321,7 @@ class Point:
             linewidths=0.5,
             zorder=2,
         )
+
 
                                                 # Draw a simple horizontal line through Saturn for rings
         if self._label == "Saturn":
