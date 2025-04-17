@@ -93,7 +93,8 @@ Elements and default values:
 
 EXAMPLE CAMERA CONFIGURATION WITH THEMING
 
-`camera:
+```yaml
+ camera:
    platform: ha_skyfield
    color_preset_entity: input_select.skyfield_theme
    refresh_interval: 120
@@ -194,7 +195,8 @@ EXAMPLE CAMERA CONFIGURATION WITH THEMING
          Jupiter: "#e6b200"
          Saturn: "#ffb000"
          Uranus: "#00f9ff"
-         Neptune: "#0079ff" ` 
+         Neptune: "#0079ff"
+```
 
 LIVE THEME SWITCHING
 
