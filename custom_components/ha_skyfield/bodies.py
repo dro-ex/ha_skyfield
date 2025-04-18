@@ -36,7 +36,7 @@ class Sky:
         presets=None,
         color_preset=None,
     ):
-        # --- built‑in dark palette as fallback ---
+        # built-in dark palette as fallback
         builtin_dark = {
             "glow": True,
             "background_outer": "#020202",
@@ -50,6 +50,12 @@ class Sky:
             "sun_today": "#fff09a",
             "solstice_winter": "#56b4e9",
             "solstice_summer": "#009e73",
+            "star_size": 10,
+            "star_color": "#64CDFA",
+            "star_alpha": 0.6,
+            "constellation_color": "#64CDFA",
+            "constellation_linewidth": 0.5,
+            "constellation_alpha": 0.1,
             "planets": {
                 "Sun": "#fff09a",
                 "Mercury": "#adbbc3",
@@ -63,7 +69,7 @@ class Sky:
             },
         }
 
-        # Merge built‑in dark with any user presets (YAML overrides)
+        # Merge built-in dark with user presets (YAML overrides)
         merged = {"dark": builtin_dark}
         if presets:
             merged.update(presets)
@@ -73,7 +79,7 @@ class Sky:
         self._default_theme = default_theme
         self._selected_theme = color_preset or default_theme
 
-        # Pick the chosen theme (fallback to default, then empty)
+        # pick the current colors dict
         colors = self._presets.get(
             self._selected_theme,
             self._presets.get(self._default_theme, {})
@@ -81,7 +87,7 @@ class Sky:
         colors["glow"] = bool(colors.get("glow", True))
         self._colors = colors
 
-        # --- sky setup ---
+        # sky setup
         lat, lon = latlong
         self._latlong = Topos(latitude_degrees=lat, longitude_degrees=lon)
         self._timezone = timezone(tzname)
@@ -107,7 +113,6 @@ class Sky:
 
     def set_theme(self, theme_name: str) -> None:
         """Switch to a new preset at runtime."""
-        # pick up the new theme (falling back to default if missing)
         self._selected_theme = theme_name
         colors = self._presets.get(
             theme_name,
@@ -115,7 +120,6 @@ class Sky:
         )
         colors["glow"] = bool(colors.get("glow", True))
         self._colors = colors
-
 
     def load(self, tmpdir="."):
         if self._planets is None:
@@ -138,7 +142,7 @@ class Sky:
 
     def _load_points(self):
         self._points.clear()
-        for name, planet_label in [
+        for name, label in [
             ("Sun", SUN),
             ("Mercury", "mercury"),
             ("Venus", "venus"),
@@ -151,10 +155,9 @@ class Sky:
         ]:
             if self._planet_list and name not in self._planet_list:
                 continue
-            # fall back to built‑in dark palette if missing
             color = self._colors.get("planets", {}).get(
                 name,
-                self._builtin_dark["planets"].get(name, "#ffffff")
+                self._builtin_dark["planets"].get(name)
             )
             size = {
                 "Sun": 500,
@@ -168,7 +171,7 @@ class Sky:
                 "Neptune": 30,
             }.get(name, 50)
             self._points.append(
-                Point(name, self._planets[planet_label], color, size, self)
+                Point(name, self._planets[label], color, size, self)
             )
 
     def _compute_solstice_paths(self):
@@ -208,7 +211,7 @@ class Sky:
         if when is None:
             when = datetime.datetime.now()
 
-        visible = [np.linspace(0, 2 * np.pi, 200), [90.0] * 200]
+        visible = [np.linspace(0, 2 * math.pi, 200), [90.0] * 200]
 
         fig, ax = plt.subplots(
             1, 1, figsize=(6, 6.2), subplot_kw={"projection": "polar"}
@@ -268,14 +271,18 @@ class Sky:
         )
         ax.set_thetagrids(
             np.linspace(0, 360.0, 9),
-            ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "N"],
+            ["N","NE","E","SE","S","SW","W","NW","N"],
             color=self._colors.get("tgrid_color", "#707070"),
         )
         ax.yaxis.grid(
-            True, color=self._colors.get("rgrid_color", "#707070"), linestyle="-"
+            True,
+            color=self._colors.get("rgrid_color", "#707070"),
+            linestyle='-'
         )
         ax.xaxis.grid(
-            True, color=self._colors.get("tgrid_color", "#707070"), linestyle="-"
+            True,
+            color=self._colors.get("tgrid_color", "#707070"),
+            linestyle='-'
         )
 
         fig.tight_layout()
@@ -297,8 +304,8 @@ class Sky:
             alpha=0.8,
         )
 
-        for sunpath in [self._winter_solstice, self._summer_solstice, today_sunpath]:
-            sunpath.draw(ax)
+        for path in [self._winter_solstice, self._summer_solstice, today_sunpath]:
+            path.draw(ax)
 
         for point in self._points:
             point.draw(ax, when)
@@ -317,6 +324,7 @@ class BodyPath:
         self.color = color
         self.linewidth = linewidth
         self.alpha = alpha
+
         self._compute_daily_path()
 
     def _compute_daily_path(self, delta=datetime.timedelta(minutes=20)):
@@ -335,7 +343,6 @@ class BodyPath:
             linewidth=self.linewidth,
             alpha=self.alpha,
         )
-
 
 class Point:
     def __init__(self, label, body, color, size, sky):
