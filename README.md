@@ -85,7 +85,7 @@ Elements and default values:
       Uranus:           "#B0C4DE"
       Neptune:          "#4169E1"
 
-    # Optional: Stars & Constellations
+    # Stars & Constellations
     star_color:          "#ffffff"   # Dots for stars
     star_alpha:          0.6         # Transparency for stars
     constellation_color: "#888888"   # Lines between constellation stars
